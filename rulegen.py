@@ -1006,9 +1006,11 @@ class RuleGen:
         words_queue = multiprocessing.Queue()
 
         # Start workers
+        pw_procs = []
         for i in range(self.threads):
-            multiprocessing.Process(target=self.password_worker,
-                                    args=(i, passwords_queue, rules_queue, words_queue)).start()
+            pw_procs.append(multiprocessing.Process(target=self.password_worker,
+                                    args=(i, passwords_queue, rules_queue, words_queue)))
+            pw_procs[i].start()
         multiprocessing.Process(target=self.rule_worker, args=(rules_queue, "%s.rule" % self.basename)).start()
         multiprocessing.Process(target=self.word_worker, args=(words_queue, "%s.word" % self.basename)).start()
 
@@ -1045,9 +1047,9 @@ class RuleGen:
             for i in range(self.threads):
                 passwords_queue.put(None)
 
-                # Wait for all of the queued passwords to finish.
-            while not passwords_queue.empty():
-                time.sleep(1)
+            # Wait for all of the queued passwords to finish.
+            for proc in pw_procs:
+                proc.join()
 
             # Signal writers to stop.
             rules_queue.put(None)
